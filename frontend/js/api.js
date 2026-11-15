@@ -3,10 +3,11 @@
 // Gestiona las peticiones hacia el backend Flask y el Keep-Alive automático
 // =============================================================================
 
-// Detecta automáticamente si corre en servidor local o en producción (Render)
-const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-    ? `${window.location.origin}/api/v1`
-    : 'http://127.0.0.1:5000/api/v1';
+// Detecta automáticamente si se ejecuta en local o en producción (Render)
+// Usando '/api/v1' relativo, el navegador siempre consulta al mismo dominio que sirve la web
+const API_BASE_URL = window.location.origin.includes('file:')
+    ? 'http://127.0.0.1:5000/api/v1'
+    : `${window.location.origin}/api/v1`;
 
 /**
  * Función auxiliar genérica para realizar llamadas HTTP con soporte de sesión.
