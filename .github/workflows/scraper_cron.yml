@@ -1,0 +1,36 @@
+# =============================================================================
+# WORKFLOW AUTOMATIZADO: EXTRACCIÓN NOCTURNA Y KEEP-ALIVE (COSTO $0 USD)
+# Ejecuta los scrapers de RE/MAX e InfoCasas cada noche y actualiza la BD
+# =============================================================================
+name: Scraper Inmobiliario Nocturno PY
+
+on:
+  schedule:
+    # Se ejecuta automáticamente todos los días a las 03:00 UTC (00:00 hora Paraguay)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Permite ejecución manual desde la pestaña Actions de GitHub
+
+jobs:
+  run-scrapers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias del Backend
+        working-directory: ./backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ejecutar pipeline de scraping y deduplicación en 3FN
+        working-directory: ./backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python -c "from app import create_app; from scrapers.run_scrapers import ejecutar_pipeline_scraping; app = create_app(); app.app_context().push(); print(ejecutar_pipeline_scraping())"

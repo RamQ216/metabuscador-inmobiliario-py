@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Redirigiendo al Comparador Cruzado...</title>
+    <script>
+        // Redirige cualquier enlace directo de compare.html?id=X al módulo 02 del sistema integrado
+        const params = new URLSearchParams(window.location.search);
+        const propId = params.get('id') || '1';
+        window.location.replace(`index.html?compare=${encodeURIComponent(propId)}`);
+    </script>
+</head>
+<body></body>
+</html>

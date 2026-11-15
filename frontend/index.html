@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CATASTRO CRUZADO PY — Índice & Comparador Inmobiliario de Gran Asunción</title>
+
+    <!-- Tipografías del Sistema (Human Craft Skill: Instrument Serif + Inter + JetBrains Mono) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS para grillas arquitectónicas y bordes de precisión -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet.js + Leaflet.markercluster (Georreferenciación OpenStreetMap costo $0) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <!-- Hoja de estilos editorial propia -->
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col bg-[#FBFBF9] text-[#121316] selection:bg-[#2E5A44] selection:text-white">
+
+    <!-- =========================================================================
+         CABECERA Y MENÚ PRINCIPAL DEL SISTEMA (Requisito 8.3 y 8.2)
+         ========================================================================= -->
+    <header class="sticky top-0 z-30 bg-[#FBFBF9]/95 border-b border-[#E4E4DF]">
+        <div class="max-w-[1440px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+            
+            <!-- Identidad Editorial del Proyecto -->
+            <div class="flex items-baseline gap-3">
+                <a href="#explorador" id="brand-logo" class="text-xl font-semibold tracking-[-0.03em] text-[#121316]">
+                    ÍNDICE INMOBILIARIO <span class="font-mono-tech text-xs font-medium px-1.5 py-0.5 bg-[#EFEFE9] border border-[#D8D8D0] rounded">PY · 3FN</span>
+                </a>
+                <span class="hidden lg:inline-block text-xs text-[#52555A] font-mono-tech">
+                    ASUNCIÓN &amp; GRAN ASUNCIÓN · MONEDA BASE: PYG (Gs.)
+                </span>
+            </div>
+
+            <!-- MENÚ PRINCIPAL DE NAVEGACIÓN (Requisito 8.3) -->
+            <nav class="flex items-center gap-1 sm:gap-2" aria-label="Menú Principal del Sistema">
+                <button type="button" data-nav="explorador" class="nav-tab tactile-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded border border-[#121316] bg-[#121316] text-[#FBFBF9]">
+                    <span class="font-mono-tech text-[11px] opacity-70 mr-1">01</span>Explorador &amp; Mapa
+                </button>
+                <button type="button" data-nav="comparador" class="nav-tab tactile-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded border border-transparent text-[#52555A] hover:text-[#121316] hover:border-[#E4E4DF]">
+                    <span class="font-mono-tech text-[11px] opacity-70 mr-1">02</span>Comparador Cruzado
+                </button>
+                <button type="button" data-nav="movimientos" class="nav-tab tactile-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded border border-transparent text-[#52555A] hover:text-[#121316] hover:border-[#E4E4DF]">
+                    <span class="font-mono-tech text-[11px] opacity-70 mr-1">03</span>Movimientos (Visitas)
+                </button>
+                <button type="button" id="nav-btn-mantenimientos" data-nav="mantenimientos" class="hidden nav-tab tactile-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded border border-transparent text-[#52555A] hover:text-[#121316] hover:border-[#E4E4DF]">
+                    <span class="font-mono-tech text-[11px] opacity-70 mr-1">04</span>Mantenimientos (ABM)
+                </button>
+            </nav>
+
+            <!-- Estado de Sesión y Botón de Login (Requisito 8.2) -->
+            <div class="flex items-center gap-3">
+                <div id="user-session-badge" class="hidden sm:flex items-center gap-2 text-xs font-mono-tech text-[#52555A]">
+                    <span class="w-2 h-2 rounded-full bg-[#2E5A44]"></span>
+                    <span id="user-display-name">Invitado</span>
+                </div>
+                <button type="button" id="btn-open-auth" class="tactile-btn inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-medium tracking-tight text-[#121316] bg-[#F4F4F0] hover:bg-[#EAEAE4] rounded border border-[#D4D4CC]">
+                    Ingresar al Sistema
+                </button>
+                <button type="button" id="btn-logout" class="hidden tactile-btn px-3 py-1.5 text-xs font-mono-tech text-[#B84A27] border border-[#E4E4DF] hover:border-[#B84A27] rounded">
+                    Salir
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Notificación sobria de estado (Feedback de operaciones) -->
+    <div id="toast-banner" class="hidden fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 bg-[#121316] text-[#FBFBF9] border border-[#2E5A44] rounded shadow-sm text-xs font-mono-tech"></div>
+
+    <!-- =========================================================================
+         SECCIÓN 01: EXPLORADOR INMOBILIARIO Y MAPA GEORREFERENCIADO
+         ========================================================================= -->
+    <main id="view-explorador" class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 py-6">
+        
+        <!-- Cabecera Editorial Asimétrica -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6 border-b border-[#E4E4DF] items-end">
+            <div class="lg:col-span-7">
+                <p class="font-mono-tech text-xs uppercase tracking-widest text-[#2E5A44] mb-1">
+                    AUDITORÍA DE PRECIOS ENTRE INTERMEDIARIOS · RE/MAX VS. INFOCASAS
+                </p>
+                <h1 class="font-editorial text-4xl sm:text-5xl tracking-[-0.02em] text-[#121316] leading-[1.05]">
+                    Un mismo inmueble en Asunción puede variar hasta un 12% según la agencia que lo publique.
+                </h1>
+            </div>
+            <div class="lg:col-span-5 flex flex-col sm:flex-row lg:justify-end gap-4 text-xs text-[#52555A]">
+                <div class="p-3 bg-white border border-[#E4E4DF] rounded flex-1">
+                    <span class="block font-mono-tech text-[11px] uppercase text-[#82868C]">Propiedades Físicas</span>
+                    <strong id="stat-total-inmuebles" class="font-mono-tech text-xl text-[#121316]">0</strong>
+                    <span class="block mt-0.5">Unidades normalizadas en 3FN</span>
+                </div>
+                <div class="p-3 bg-[#EBF2EE] border border-[#C5D9CD] rounded flex-1">
+                    <span class="block font-mono-tech text-[11px] uppercase text-[#2E5A44]">Arbitrajes Detectados</span>
+                    <strong id="stat-total-duplicados" class="font-mono-tech text-xl text-[#2E5A44]">0</strong>
+                    <span class="block mt-0.5 text-[#2E5A44]">Con disparidad de precio/expensas</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Filtros Estructurada -->
+        <form id="search-filters-form" class="py-4 border-b border-[#E4E4DF] grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 items-end">
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Operación</label>
+                <select id="filter-operacion" class="w-full px-2.5 py-2 text-xs bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]">
+                    <option value="">Todas (Alquiler/Venta)</option>
+                    <option value="alquiler">Alquiler mensual</option>
+                    <option value="venta">Venta definitiva</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Ciudad</label>
+                <select id="filter-ciudad" class="w-full px-2.5 py-2 text-xs bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]">
+                    <option value="">Gran Asunción (Todas)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Barrio</label>
+                <select id="filter-barrio" class="w-full px-2.5 py-2 text-xs bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]">
+                    <option value="">Todos los barrios</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Tipo Unidad</label>
+                <select id="filter-tipo" class="w-full px-2.5 py-2 text-xs bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]">
+                    <option value="">Casa / Dpto / Dúplex</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Dormitorios</label>
+                <select id="filter-dormitorios" class="w-full px-2.5 py-2 text-xs bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]">
+                    <option value="">Cualquier cantidad</option>
+                    <option value="1">1+ Dormitorios</option>
+                    <option value="2">2+ Dormitorios</option>
+                    <option value="3">3+ Dormitorios</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-mono-tech text-[11px] uppercase text-[#52555A] mb-1">Máx. Guaraníes (Gs.)</label>
+                <input type="number" id="filter-max-price" placeholder="Ej: 8000000" step="500000" class="w-full px-2.5 py-2 text-xs font-mono-tech bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+            </div>
+
+            <div class="flex items-center h-9 pt-2">
+                <label class="inline-flex items-center gap-2 text-xs cursor-pointer select-none">
+                    <input type="checkbox" id="filter-solo-duplicados" class="accent-[#2E5A44] w-3.5 h-3.5 rounded" />
+                    <span class="font-medium text-[#121316]">Solo multi-agencia</span>
+                </label>
+            </div>
+
+            <div class="flex gap-1.5">
+                <button type="submit" class="tactile-btn flex-1 py-2 px-3 bg-[#121316] text-[#FBFBF9] text-xs font-medium rounded hover:bg-[#272930]">
+                    Filtrar
+                </button>
+                <button type="button" id="btn-reset-filters" class="tactile-btn py-2 px-2.5 bg-[#F4F4F0] text-[#52555A] text-xs border border-[#D4D4CC] rounded hover:text-[#121316]" title="Limpiar filtros">
+                    ↺
+                </button>
+            </div>
+        </form>
+
+        <!-- Grilla Asimétrica 7/5: Listado de Propiedades (7 cols) + Mapa Leaflet Cluster (5 cols) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6 items-start">
+            
+            <!-- Columna Izquierda (7/12): Resultados agrupados con rango Desde/Hasta -->
+            <div class="lg:col-span-7 space-y-4">
+                <div class="flex items-center justify-between text-xs font-mono-tech text-[#52555A]">
+                    <span id="results-counter-label">Mostrando propiedades verificadas</span>
+                    <span>Orden: Relevancia de cruce</span>
+                </div>
+
+                <!-- Contenedor dinámico de tarjetas editoriales -->
+                <div id="properties-list-container" class="divide-y divide-[#E4E4DF] border border-[#E4E4DF] bg-white rounded">
+                    <!-- Renderizado por main.js -->
+                </div>
+            </div>
+
+            <!-- Columna Derecha (5/12): Mapa con Leaflet.markercluster y Referencia Gs./m2 -->
+            <div class="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
+                <div class="border border-[#E4E4DF] bg-white rounded overflow-hidden">
+                    <div class="px-4 py-2.5 border-b border-[#E4E4DF] flex items-center justify-between text-xs">
+                        <span class="font-medium">Cartografía por Barrio (Clusterizado)</span>
+                        <span class="font-mono-tech text-[11px] text-[#2E5A44]">● Verde = Oferta duplicada</span>
+                    </div>
+                    <div id="leaflet-map" class="h-[440px]"></div>
+                </div>
+
+                <!-- Tabla compacta de Valor por Metro Cuadrado (Gs./m2) por Barrio -->
+                <div class="border border-[#E4E4DF] bg-white rounded p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-semibold uppercase font-mono-tech tracking-wider text-[#52555A]">
+                            Índice Referencial Gs./m² (Alquiler)
+                        </h3>
+                        <span class="text-[11px] font-mono-tech text-[#82868C]">Tiempo real</span>
+                    </div>
+                    <div id="analytics-m2-container" class="divide-y divide-[#E4E4DF] text-xs font-mono-tech">
+                        <!-- Renderizado por main.js -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- =========================================================================
+         SECCIÓN 02: VISTA DE COMPARACIÓN CRUZADA LADO A LADO (compare)
+         Compara Precio en PYG, Expensas en PYG y Superficie m2 + Genera Movimiento
+         ========================================================================= -->
+    <section id="view-comparador" class="hidden flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 py-6">
+        <div class="mb-4">
+            <button type="button" id="btn-back-to-search" class="tactile-btn inline-flex items-center gap-1.5 text-xs font-mono-tech text-[#52555A] hover:text-[#121316]">
+                ← Volver al listado de propiedades
+            </button>
+        </div>
+
+        <!-- Contenedor dinámico de la comparativa lado a lado -->
+        <div id="compare-detail-container" class="bg-white border border-[#E4E4DF] rounded p-6">
+            <!-- Renderizado por main.js -->
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         SECCIÓN 03: MOVIMIENTOS TRANSACCIONALES (Requisito 8.1)
+         Cabecera (solicitudes_visita) y Detalle (solicitud_detalles)
+         ========================================================================= -->
+    <section id="view-movimientos" class="hidden flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 py-6">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between pb-5 border-b border-[#E4E4DF] gap-4">
+            <div>
+                <p class="font-mono-tech text-xs uppercase tracking-widest text-[#2E5A44]">
+                    MÓDULO TRANSACCIONAL · REQUISITO ACADÉMICO 8.1
+                </p>
+                <h2 class="font-editorial text-3xl sm:text-4xl text-[#121316] mt-0.5">
+                    Registro y Gestión de Solicitudes de Visita Comparada
+                </h2>
+                <p class="text-xs text-[#52555A] mt-1">
+                    Cada movimiento registra una cabecera (<code class="font-mono-tech">solicitudes_visita</code>) y congela los precios de las agencias seleccionadas en el detalle (<code class="font-mono-tech">solicitud_detalles</code>).
+                </p>
+            </div>
+            <button type="button" id="btn-refresh-movements" class="tactile-btn px-3.5 py-2 text-xs font-mono-tech border border-[#D4D4CC] bg-white rounded hover:border-[#121316]">
+                Actualizar Movimientos
+            </button>
+        </div>
+
+        <div id="movements-list-container" class="mt-6 space-y-4">
+            <!-- Renderizado por main.js -->
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         SECCIÓN 04: MANTENIMIENTOS DEL SISTEMA / ABMs (Requisito 8.4)
+         CRUD de Agencias, Barrios/Ciudades, Tipos de Inmueble, Usuarios y Scraper
+         ========================================================================= -->
+    <section id="view-mantenimientos" class="hidden flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-8 py-6">
+        <div class="flex flex-col lg:flex-row lg:items-end justify-between pb-5 border-b border-[#E4E4DF] gap-4">
+            <div>
+                <p class="font-mono-tech text-xs uppercase tracking-widest text-[#2E5A44]">
+                    ADMINISTRACIÓN DE TABLAS MAESTRAS EN 3FN · REQUISITO ACADÉMICO 8.4
+                </p>
+                <h2 class="font-editorial text-3xl sm:text-4xl text-[#121316] mt-0.5">
+                    Mantenimientos del Sistema (Altas, Bajas y Modificaciones)
+                </h2>
+            </div>
+
+            <!-- Disparador en vivo del motor de Scraping y Deduplicación por Puntaje -->
+            <div class="flex items-center gap-3">
+                <button type="button" id="btn-trigger-scraper" class="tactile-btn px-4 py-2 bg-[#2E5A44] text-white text-xs font-mono-tech rounded hover:bg-[#234735]">
+                    ▶ Ejecutar Scraper &amp; Deduplicación (RE/MAX + InfoCasas)
+                </button>
+            </div>
+        </div>
+
+        <!-- Selector de tabla maestra a administrar -->
+        <div class="flex flex-wrap gap-2 py-4 border-b border-[#E4E4DF]">
+            <button type="button" data-maint="agencies" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#121316] text-white">
+                1. Agencias Inmobiliarias
+            </button>
+            <button type="button" data-maint="neighborhoods" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#F4F4F0] text-[#52555A] border border-[#D4D4CC]">
+                2. Barrios y Coordenadas
+            </button>
+            <button type="button" data-maint="cities" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#F4F4F0] text-[#52555A] border border-[#D4D4CC]">
+                3. Ciudades
+            </button>
+            <button type="button" data-maint="property-types" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#F4F4F0] text-[#52555A] border border-[#D4D4CC]">
+                4. Tipos de Inmueble
+            </button>
+            <button type="button" data-maint="users" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#F4F4F0] text-[#52555A] border border-[#D4D4CC]">
+                5. Usuarios y Roles
+            </button>
+            <button type="button" data-maint="test-dedup" class="maint-tab tactile-btn px-3 py-1.5 text-xs font-mono-tech rounded bg-[#EBF2EE] text-[#2E5A44] border border-[#C5D9CD]">
+                6. Simulador Manual de Cruce (Scoring)
+            </button>
+        </div>
+
+        <!-- Contenedor dinámico del ABM seleccionado -->
+        <div id="maintenance-content-container" class="mt-6">
+            <!-- Renderizado por main.js -->
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         MODAL DE LOGIN Y REGISTRO DE USUARIO (Requisito 8.2)
+         ========================================================================= -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-50 bg-[#121316]/60 flex items-center justify-center p-4">
+        <div class="bg-[#FBFBF9] border border-[#121316] rounded max-w-md w-full p-6 shadow-lg">
+            <div class="flex items-center justify-between pb-3 border-b border-[#E4E4DF]">
+                <div>
+                    <span class="font-mono-tech text-[11px] uppercase text-[#2E5A44]">CONTROL DE ACCESO · REQ. 8.2</span>
+                    <h3 class="font-editorial text-2xl text-[#121316]">Autenticación del Sistema</h3>
+                </div>
+                <button type="button" id="btn-close-auth" class="text-sm font-mono-tech text-[#52555A] hover:text-[#121316] px-2 py-1">
+                    [ESC]
+                </button>
+            </div>
+
+            <!-- Selector entre Login y Registro -->
+            <div class="grid grid-cols-2 gap-1 mt-3 p-1 bg-[#F4F4F0] border border-[#E4E4DF] rounded font-mono-tech text-xs">
+                <button type="button" id="tab-auth-login" class="py-1.5 rounded bg-[#121316] text-[#FBFBF9]">
+                    Iniciar Sesión
+                </button>
+                <button type="button" id="tab-auth-register" class="py-1.5 rounded text-[#52555A] hover:text-[#121316]">
+                    Crear Cuenta (Cliente)
+                </button>
+            </div>
+
+            <!-- Bloque de Login -->
+            <div id="panel-auth-login">
+                <!-- Botones de acceso rápido para evaluación del docente -->
+                <div class="mt-4 p-3 bg-[#F4F4F0] border border-[#E4E4DF] rounded text-xs">
+                    <p class="font-mono-tech text-[11px] uppercase text-[#52555A] mb-2">
+                        Credenciales de Evaluación Académica (1 Clic):
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btn-quick-admin" class="tactile-btn py-1.5 px-2 bg-white border border-[#D4D4CC] rounded font-mono-tech text-[11px] hover:border-[#121316] text-left">
+                            <strong class="block text-[#121316]">Rol: Administrador</strong>
+                            <span class="text-[#52555A]">admin@inmueblespy.com</span>
+                        </button>
+                        <button type="button" id="btn-quick-client" class="tactile-btn py-1.5 px-2 bg-white border border-[#D4D4CC] rounded font-mono-tech text-[11px] hover:border-[#121316] text-left">
+                            <strong class="block text-[#121316]">Rol: Cliente</strong>
+                            <span class="text-[#52555A]">maria@gmail.com</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formulario de Login -->
+                <form id="login-form" class="mt-4 space-y-3">
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Correo Electrónico</label>
+                        <input type="email" id="login-email" required placeholder="admin@inmueblespy.com" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Contraseña</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                    <div id="login-error-msg" class="hidden text-xs font-mono-tech text-[#B84A27]"></div>
+                    <button type="submit" class="tactile-btn w-full py-2.5 bg-[#121316] text-[#FBFBF9] text-xs font-mono-tech uppercase tracking-wider rounded hover:bg-[#26282E]">
+                        Iniciar Sesión
+                    </button>
+                </form>
+            </div>
+
+            <!-- Formulario de Registro de Nuevo Usuario -->
+            <form id="register-form" class="hidden mt-4 space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Nombre</label>
+                        <input type="text" id="reg-nombre" required placeholder="Juan" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Apellido</label>
+                        <input type="text" id="reg-apellido" required placeholder="Benítez" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Correo Electrónico</label>
+                    <input type="email" id="reg-email" required placeholder="juan@correo.com" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Teléfono</label>
+                        <input type="text" id="reg-telefono" placeholder="0981-000000" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                    <div>
+                        <label class="block font-mono-tech text-xs text-[#52555A] mb-1">Contraseña (mín. 6)</label>
+                        <input type="password" id="reg-password" minlength="6" required placeholder="••••••••" class="w-full px-3 py-2 text-sm bg-white border border-[#D4D4CC] rounded focus:outline-none focus:border-[#121316]" />
+                    </div>
+                </div>
+                <div id="register-error-msg" class="hidden text-xs font-mono-tech text-[#B84A27]"></div>
+                <button type="submit" class="tactile-btn w-full py-2.5 bg-[#2E5A44] text-white text-xs font-mono-tech uppercase tracking-wider rounded hover:bg-[#234735]">
+                    Registrar Cuenta de Cliente
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pie de página sobrio -->
+    <footer class="mt-12 border-t border-[#E4E4DF] py-5 px-4 sm:px-8 text-xs font-mono-tech text-[#82868C]">
+        <div class="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>PROYECTO ACADÉMICO: METABUSCADOR Y COMPARADOR CRUZADO INMOBILIARIO (PARAGUAY)</span>
+            <span>BASE DE DATOS: 10 TABLAS EN 3FN · MONEDA NORMALIZADA: GUARANÍES (PYG)</span>
+        </div>
+    </footer>
+
+    <!-- Librerías JS de Leaflet y MarkerCluster -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <!-- Módulo principal de la aplicación -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
