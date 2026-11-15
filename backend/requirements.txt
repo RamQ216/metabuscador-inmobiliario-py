@@ -6,7 +6,7 @@ Werkzeug==3.0.3
 
 # Driver PostgreSQL para conexión con Supabase en producción
 psycopg2-binary==2.9.9
-psycopg[binary]==3.2.3
+psycopg[binary]>=3.2.10
 
 # Librerías para extracción web (Scraping) y peticiones HTTP
 requests==2.32.3
